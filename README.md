@@ -29,8 +29,8 @@ FitBox/
 
 Fichiers clés:
 - `backend/physiological_calculator.py` : fonctions pour IMC, BMR, TDEE et conversions.
-- `backend/phase4_finetuning.py` : pipeline de fine-tuning du modèle (scripts expérimentaux).
-- `backend/phase5_backend_api.py` : serveur API (expose endpoints pour health, recommendations, etc.).
+- `backend/finetunin.py` : pipeline de fine-tuning du modèle (scripts expérimentaux).
+- `backend/backend_api.py` : serveur API (expose endpoints pour health, recommendations, etc.).
 - `data/fitness_data_cleaned.csv` : dataset nettoyé utilisé pour entraînement/analyses.
 
 ## Démarrage rapide
@@ -51,7 +51,7 @@ pip install -r requirements.txt
 3) Lancer l'API locale :
 
 ```bash
-python backend/phase5_backend_api.py
+python backend/backend_api.py
 ```
 
 4) Vérifier l'état :

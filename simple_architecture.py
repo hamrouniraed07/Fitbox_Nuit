@@ -40,9 +40,9 @@ def create_simple_structure():
         # Backend
         'physiological_calculator.py': 'backend/physiological_calculator.py',
         'prompt_templates.py': 'backend/prompt_templates.py',
-        'phase3_model_setup.py': 'backend/phase3_model_setup.py',
-        'phase4_finetuning.py': 'backend/phase4_finetuning.py',
-        'phase5_backend_api.py': 'backend/phase5_backend_api.py',
+        'model_setup.py': 'backend/model_setup.py',
+        'finetunin.py': 'backend/finetunin.py',
+        'backend_api.py': 'backend/backend_api.py',
         
         # Notebooks
         'fitbox_eda_nlp.ipynb': 'notebooks/fitbox_eda_nlp.ipynb',
@@ -95,7 +95,7 @@ def create_simple_structure():
     print("   outputs/    - Graphiques et résultats")
     
     print("\n🚀 Pour lancer l'API:")
-    print("   python backend/phase5_backend_api.py")
+    print("   python backend/backend_api.py")
     
     print("\n⚠️  Note: Les fichiers originaux sont toujours dans le dossier racine")
     print("   Supprimez-les manuellement une fois que vous avez vérifié que tout marche")
@@ -109,9 +109,9 @@ def fix_imports():
     print("="*60)
     
     backend_files = [
-        'backend/phase3_model_setup.py',
-        'backend/phase4_finetuning.py',
-        'backend/phase5_backend_api.py',
+        'backend/model_setup.py',
+        'backend/finetunin.py',
+        'backend/backend_api.py',
     ]
     
     for file_path in backend_files:
@@ -187,7 +187,7 @@ pip install -r requirements.txt
 
 ### 2. Lancer l'API
 ```bash
-python backend/phase5_backend_api.py
+python backend/backend_api.py
 ```
 
 ### 3. Tester
@@ -198,8 +198,8 @@ curl http://localhost:5000/health
 ## 📊 Fichiers Importants
 
 - **backend/physiological_calculator.py** - Calculs IMC, BMR, TDEE
-- **backend/phase5_backend_api.py** - API Flask
-- **backend/phase4_finetuning.py** - Fine-tuning du modèle
+- **backend/backend_api.py** - API Flask
+- **backend/finetunin.py** - Fine-tuning du modèle
 - **data/fitness_data_cleaned.csv** - Dataset principal
 
 ## 🧪 Tests
@@ -249,7 +249,7 @@ def main():
         print("\n📋 Prochaines étapes:")
         print("   1. Vérifiez que tout est OK")
         print("   2. Supprimez les anciens fichiers à la racine")
-        print("   3. Lancez: python backend/phase5_backend_api.py")
+        print("   3. Lancez: python backend/backend_api.py")
     
     else:
         print("\n❌ Choix invalide")
