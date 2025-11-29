@@ -287,10 +287,10 @@ class SystemTester:
             })
         
         # Test 5: Script de configuration
-        script_path = Path("phase3_model_setup.py")
+        script_path = Path("model_setup.py")
         script_success = script_path.exists()
         self.print_test(
-            "Script phase3_model_setup.py existe",
+            "Script model_setup.py existe",
             script_success
         )
         self.results["phase3"]["tests"].append({
@@ -307,10 +307,10 @@ class SystemTester:
         self.print_header("PHASE 4: FINE-TUNING")
         
         # Test 1: Script existe
-        script_path = Path("phase4_finetuning.py")
+        script_path = Path("finetunin.py")
         script_success = script_path.exists()
         self.print_test(
-            "Script phase4_finetuning.py existe",
+            "Script finetunin.py existe",
             script_success
         )
         self.results["phase4"]["tests"].append({
@@ -401,10 +401,10 @@ class SystemTester:
             })
         
         # Test 3: Script API
-        api_path = Path("phase5_backend_api.py")
+        api_path = Path("backend_api.py")
         api_success = api_path.exists()
         self.print_test(
-            "Script phase5_backend_api.py existe",
+            "Script backend_api.py existe",
             api_success
         )
         self.results["phase5"]["tests"].append({
@@ -438,7 +438,7 @@ class SystemTester:
             self.print_test(
                 "API en cours d'exécution",
                 False,
-                "Lancez: python phase5_backend_api.py"
+                "Lancez: python backend_api.py"
             )
         
         # Statut global Phase 5
@@ -493,17 +493,17 @@ class SystemTester:
         if self.results["phase3"]["status"] != "✅":
             print("3️⃣ Complétez la Phase 3:")
             print("   - Installez les dépendances: pip install -r requirements.txt")
-            print("   - Testez le modèle: python phase3_model_setup.py")
+            print("   - Testez le modèle: python model_setup.py")
         
         if self.results["phase4"]["status"] == "⚠️":
             print("4️⃣ Phase 4 (Optionnel):")
-            print("   - Lancez le fine-tuning: python phase4_finetuning.py")
+            print("   - Lancez le fine-tuning: python finetunin.py")
             print("   - Ou utilisez le modèle de base pour commencer")
         
         if self.results["phase5"]["status"] != "✅":
             print("5️⃣ Complétez la Phase 5:")
             print("   - Installez Flask: pip install flask flask-cors")
-            print("   - Lancez l'API: python phase5_backend_api.py")
+            print("   - Lancez l'API: python backend_api.py")
         
         # Statut global
         all_critical_ok = (
@@ -517,7 +517,7 @@ class SystemTester:
             print("🎉 SYSTÈME PRÊT!")
             print("\n✅ Les phases critiques sont opérationnelles.")
             print("   Vous pouvez maintenant:")
-            print("   - Lancer l'API: python phase5_backend_api.py")
+            print("   - Lancer l'API: python backend_api.py")
             print("   - Tester les endpoints")
             print("   - Développer le frontend (Phase 6)")
         else:
