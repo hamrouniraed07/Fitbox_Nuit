@@ -29,7 +29,7 @@ FitBox/
 
 Fichiers clés:
 - `backend/physiological_calculator.py` : fonctions pour IMC, BMR, TDEE et conversions.
-- `backend/finetunin.py` : pipeline de fine-tuning du modèle (scripts expérimentaux).
+- `backend/finetuning.py` : pipeline de fine-tuning du modèle (scripts expérimentaux).
 - `backend/backend_api.py` : serveur API (expose endpoints pour health, recommendations, etc.).
 - `data/fitness_data_cleaned.csv` : dataset nettoyé utilisé pour entraînement/analyses.
 

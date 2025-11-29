@@ -41,7 +41,7 @@ def create_simple_structure():
         'physiological_calculator.py': 'backend/physiological_calculator.py',
         'prompt_templates.py': 'backend/prompt_templates.py',
         'model_setup.py': 'backend/model_setup.py',
-        'finetunin.py': 'backend/finetunin.py',
+        'finetuning.py': 'backend/finetuning.py',
         'backend_api.py': 'backend/backend_api.py',
         
         # Notebooks
@@ -110,7 +110,7 @@ def fix_imports():
     
     backend_files = [
         'backend/model_setup.py',
-        'backend/finetunin.py',
+        'backend/finetuning.py',
         'backend/backend_api.py',
     ]
     
@@ -199,7 +199,7 @@ curl http://localhost:5000/health
 
 - **backend/physiological_calculator.py** - Calculs IMC, BMR, TDEE
 - **backend/backend_api.py** - API Flask
-- **backend/finetunin.py** - Fine-tuning du modèle
+- **backend/finetuning.py** - Fine-tuning du modèle
 - **data/fitness_data_cleaned.csv** - Dataset principal
 
 ## 🧪 Tests

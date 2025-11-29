@@ -307,10 +307,10 @@ class SystemTester:
         self.print_header("PHASE 4: FINE-TUNING")
         
         # Test 1: Script existe
-        script_path = Path("finetunin.py")
+        script_path = Path("finetuning.py")
         script_success = script_path.exists()
         self.print_test(
-            "Script finetunin.py existe",
+            "Script finetuning.py existe",
             script_success
         )
         self.results["phase4"]["tests"].append({
@@ -497,7 +497,7 @@ class SystemTester:
         
         if self.results["phase4"]["status"] == "⚠️":
             print("4️⃣ Phase 4 (Optionnel):")
-            print("   - Lancez le fine-tuning: python finetunin.py")
+            print("   - Lancez le fine-tuning: python finetuning.py")
             print("   - Ou utilisez le modèle de base pour commencer")
         
         if self.results["phase5"]["status"] != "✅":
