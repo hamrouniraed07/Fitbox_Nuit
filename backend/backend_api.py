@@ -1,46 +1,65 @@
 """
-FitBox - Phase 5: Backend API avec Flask
-API REST pour le chatbot coach sportif
+FitBox - Backend API Flask (VERSION CORRIGÉE)
+Correction de l'erreur DynamicCache
 """
-
-import sys
-from pathlib import Path
-
-# Ajouter le répertoire parent au path pour permettre les imports
-parent_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
-from backend.physiological_calculator import PhysiologicalCalculator
+import sys
+sys.path.append('..')
+from physiological_calculator import PhysiologicalCalculator
 import json
 from datetime import datetime
+from pathlib import Path
+import os
+import glob
 
 
 app = Flask(__name__)
-CORS(app)  # Permettre les requêtes cross-origin
+CORS(app)
 
 
 class FitBoxBackend:
     """Gestionnaire du backend FitBox"""
     
-    def __init__(self, model_path: str = "models/fitbox_model"):
-        """
-        Initialise le backend.
-        
-        Args:
-            model_path: Chemin vers le modèle fine-tuné
-        """
-        self.model_path = Path(model_path)
+    def __init__(self, model_path: str = None):
+        # Déterminer un chemin par défaut robuste vers <repo_root>/models/fitbox_model
+        if model_path:
+            self.model_path = Path(model_path)
+        else:
+            self.model_path = Path(__file__).resolve().parent.parent / "models" / "fitbox_model"
+        # Si un fichier model_config.json est présent dans le dossier, et qu'il contient
+        # un chemin local vers les poids, utilisez-le. Cela permet d'avoir un
+        # modèle centralisé ailleurs sur le disque et d'indiquer son chemin ici.
+        try:
+            mc = self.model_path / "model_config.json"
+            if mc.exists():
+                try:
+                    cfg = json.load(open(mc, 'r', encoding='utf-8'))
+                    maybe_name = cfg.get('model_name') or cfg.get('model')
+                    if maybe_name:
+                        candidate = Path(maybe_name)
+                        # Si l'utilisateur a mis un chemin local (absolu ou relatif)
+                        if candidate.exists():
+                            # remap model_path vers ce dossier contenant les poids
+                            self.model_path = candidate.resolve()
+                            print(f"ℹ️  model_config.json indique un chemin local; utilisation de {self.model_path}")
+                        else:
+                            # si le champ ressemble à un chemin (contient /) mais n'existe pas,
+                            # informer l'utilisateur sans écraser le chemin par défaut
+                            if os.path.sep in str(maybe_name) or maybe_name.startswith('.'):
+                                print(f"⚠️  Le chemin indiqué dans model_config.json n'existe pas: {maybe_name}")
+                except Exception:
+                    pass
+        except Exception:
+            pass
         self.model = None
         self.tokenizer = None
         self.calculator = PhysiologicalCalculator()
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        # Historique des conversations (en production, utiliser une vraie DB)
         self.conversations = {}
         
         print(f"🖥️  Device: {self.device}")
@@ -48,61 +67,104 @@ class FitBoxBackend:
     def load_model(self):
         """Charge le modèle fine-tuné"""
         print(f"📦 Chargement du modèle depuis {self.model_path}...")
-        
+
+        # Vérifier l'existence du dossier et la présence de fichiers attendus
         try:
-            # Charger le tokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_path,
-                trust_remote_code=True
-            )
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            
-            # Charger le modèle de base
-            base_model = AutoModelForCausalLM.from_pretrained(
-                "microsoft/Phi-3-mini-4k-instruct",
-                device_map="auto",
-                torch_dtype=torch.float16,
-                trust_remote_code=True,
-            )
-            
-            # Charger les poids LoRA
-            self.model = PeftModel.from_pretrained(base_model, self.model_path)
-            self.model.eval()
-            
-            print("✅ Modèle chargé avec succès!")
-            return True
-            
-        except Exception as e:
-            print(f"❌ Erreur lors du chargement: {e}")
-            print("⚠️  Utilisation du modèle de base sans fine-tuning")
-            
-            # Fallback: modèle de base
+            if not self.model_path.exists():
+                print(f"❌ Le chemin du modèle n'existe pas: {self.model_path}")
+                print("✅ Indication: placez ici votre adapter LoRA ou un modèle complet (fichiers attendus: config.json, pytorch_model.bin, *.safetensors, adapter_config.json, adapter_model.bin)")
+                return False
+
+            # Lister fichiers utiles
+            files = list(self.model_path.iterdir())
+            if len(files) == 0:
+                print(f"❌ Le dossier {self.model_path} est vide.")
+                print("✅ Indication: placez ici votre adapter LoRA (adapter_model.bin, adapter_config.json) ou un modèle complet (config.json + weights)")
+                return False
+
+            # Si aucun fichier de modèle/config détecté, alerter et ne pas appeler HF qui pourrait interpréter le chemin
+            pattern_matches = []
+            for pattern in ("config.json", "pytorch_model.bin", "*.safetensors", "adapter_model.bin", "adapter_config.json"):
+                pattern_matches += glob.glob(str(self.model_path / pattern))
+
+            if len(pattern_matches) == 0:
+                # Si l'utilisateur a fourni un fichier `model_config.json`, l'utiliser pour informer
+                mc_path = self.model_path / "model_config.json"
+                if mc_path.exists():
+                    try:
+                        cfg = json.load(open(mc_path, 'r', encoding='utf-8'))
+                        model_name = cfg.get('model_name') or cfg.get('model') or cfg.get('name')
+                        device_pref = cfg.get('device', self.device)
+                        print(f"ℹ️  Trouvé 'model_config.json' dans {self.model_path} — modèle demandé: {model_name} (device preferred: {device_pref})")
+                        print("⚠️  Note: 'model_config.json' seul ne contient pas les poids. Pour utiliser un modèle local, copiez ici les fichiers: config.json + poids (pytorch_model.bin / *.safetensors), et les fichiers tokenizer.")
+                        print("Options:")
+                        print(" - Copier un adapter LoRA local dans ce dossier (adapter_model.bin + adapter_config.json)")
+                        print(" - Cloner/télécharger un repo HuggingFace dans ce dossier (git lfs + clone)")
+                        print(" - Ou autoriser le téléchargement automatique depuis le hub en répondant (je peux le lancer si vous le demandez).")
+                        return False
+                    except Exception as e:
+                        print(f"❌ Échec de lecture de model_config.json: {e}")
+                        print("Fichiers attendus: config.json, pytorch_model.bin, *.safetensors, adapter_config.json, adapter_model.bin")
+                        return False
+                else:
+                    print(f"❌ Aucun fichier de modèle reconnu trouvé dans {self.model_path}.")
+                    print("Fichiers attendus: config.json, pytorch_model.bin, *.safetensors, adapter_config.json, adapter_model.bin")
+                    print("Si vous avez un adapter LoRA local, copiez ses fichiers ici. Sinon, fournissez un chemin vers un modèle HuggingFace valide.")
+                    return False
+
+            # Tentative de chargement: tokenizer depuis le dossier local (si disponible)
             try:
                 self.tokenizer = AutoTokenizer.from_pretrained(
-                    "microsoft/Phi-3-mini-4k-instruct",
+                    self.model_path,
                     trust_remote_code=True
                 )
-                self.model = AutoModelForCausalLM.from_pretrained(
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+
+                base_model = AutoModelForCausalLM.from_pretrained(
                     "microsoft/Phi-3-mini-4k-instruct",
                     device_map="auto",
                     torch_dtype=torch.float16,
                     trust_remote_code=True,
                 )
+
+                # Charger l'adapter LoRA local
+                self.model = PeftModel.from_pretrained(base_model, self.model_path)
+                self.model.eval()
+
+                print("✅ Modèle chargé avec succès (avec adapter local)!")
                 return True
-            except Exception as e2:
-                print(f"❌ Échec du chargement: {e2}")
-                return False
+
+            except Exception as e:
+                print(f"❌ Erreur lors du chargement de l'adapter local: {e}")
+                print("⚠️  Tentative d'utilisation du modèle de base sans fine-tuning")
+
+                try:
+                    # Tentative de chargement du modèle de base (fallback)
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        "microsoft/Phi-3-mini-4k-instruct",
+                        trust_remote_code=True
+                    )
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        "microsoft/Phi-3-mini-4k-instruct",
+                        device_map="auto",
+                        torch_dtype=torch.float16,
+                        trust_remote_code=True,
+                    )
+                    return True
+
+                except Exception as e2:
+                    print(f"❌ Échec du chargement de secours du modèle de base: {e2}")
+                    print("Conseils: installez 'bitsandbytes' pour quantification 4-bit, augmentez la mémoire GPU, ou exécutez en CPU.")
+                    return False
+
+        except Exception as e:
+            print(f"❌ Erreur inattendue lors de la vérification du dossier modèle: {e}")
+            return False
     
     def calculate_profile(self, user_data: dict) -> dict:
-        """
-        Calcule le profil physiologique complet.
-        
-        Args:
-            user_data: Données utilisateur
-            
-        Returns:
-            Profil calculé avec tous les indicateurs
-        """
+        """Calcule le profil physiologique complet"""
         try:
             profile = self.calculator.calculate_complete_profile(
                 age=user_data['age'],
@@ -124,27 +186,9 @@ class FitBoxBackend:
                 "error": str(e)
             }
     
-    def create_prompt(
-        self,
-        user_data: dict,
-        profile: dict,
-        message: str,
-        conversation_history: list = None
-    ) -> str:
-        """
-        Crée un prompt contextualisé pour le modèle.
+    def create_prompt(self, user_data: dict, profile: dict, message: str, conversation_history: list = None) -> str:
+        """Crée un prompt contextualisé"""
         
-        Args:
-            user_data: Informations utilisateur
-            profile: Profil physiologique
-            message: Message de l'utilisateur
-            conversation_history: Historique de conversation
-            
-        Returns:
-            Prompt formaté
-        """
-        
-        # Contexte utilisateur
         context = f"""PROFIL UTILISATEUR:
 - Âge: {user_data['age']} ans, {user_data['gender']}
 - Poids: {user_data['weight']} kg, Taille: {user_data['height']} m
@@ -157,14 +201,12 @@ DONNÉES PHYSIOLOGIQUES:
 - Calories cibles: {profile['nutrition']['target_calories']} cal/jour
 - Macros: {profile['nutrition']['macros']['protein_g']}g protéines, {profile['nutrition']['macros']['carbs_g']}g glucides, {profile['nutrition']['macros']['fat_g']}g lipides"""
         
-        # Historique de conversation
         history_text = ""
         if conversation_history:
             history_text = "\n\nHISTORIQUE DE CONVERSATION:\n"
-            for item in conversation_history[-3:]:  # Garder les 3 derniers échanges
+            for item in conversation_history[-3:]:
                 history_text += f"User: {item['user']}\nAssistant: {item['assistant']}\n\n"
         
-        # Assembler le prompt
         prompt = f"""<|system|>
 Tu es FitBox, un coach sportif et nutritionniste expert virtuel. 
 Tu fournis des conseils personnalisés, motivants et basés sur la science.
@@ -178,31 +220,15 @@ Réponds de manière concise et actionable.<|end|>
         
         return prompt
     
-    def generate_response(
-        self,
-        prompt: str,
-        max_tokens: int = 400,
-        temperature: float = 0.7
-    ) -> str:
-        """
-        Génère une réponse du modèle.
-        
-        Args:
-            prompt: Prompt formaté
-            max_tokens: Longueur maximale de la réponse
-            temperature: Température de génération
-            
-        Returns:
-            Réponse générée
-        """
+    def generate_response(self, prompt: str, max_tokens: int = 400, temperature: float = 0.7) -> str:
+        """Génère une réponse du modèle (VERSION CORRIGÉE)"""
         if self.model is None:
             return "Erreur: Le modèle n'est pas chargé."
         
         try:
-            # Tokenization
             inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
             
-            # Génération
+            # ✅ CORRECTION: Ajout de use_cache=False
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
@@ -213,12 +239,11 @@ Réponds de manière concise et actionable.<|end|>
                     repetition_penalty=1.1,
                     do_sample=True,
                     pad_token_id=self.tokenizer.eos_token_id,
+                    use_cache=False,  # ✅ CORRECTION: Désactiver le cache
                 )
             
-            # Décodage
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            # Extraire la réponse de l'assistant
             if "<|assistant|>" in response:
                 response = response.split("<|assistant|>")[-1].strip()
             
@@ -228,16 +253,7 @@ Réponds de manière concise et actionable.<|end|>
             return f"Erreur lors de la génération: {str(e)}"
     
     def generate_workout_plan(self, user_data: dict, profile: dict) -> dict:
-        """
-        Génère un programme d'entraînement personnalisé.
-        
-        Args:
-            user_data: Données utilisateur
-            profile: Profil physiologique
-            
-        Returns:
-            Programme d'entraînement
-        """
+        """Génère un programme d'entraînement"""
         message = f"Crée-moi un programme d'entraînement détaillé pour la semaine, adapté à mon niveau et mon objectif de {user_data.get('goal', 'fitness')}."
         
         prompt = self.create_prompt(user_data, profile, message)
@@ -250,16 +266,7 @@ Réponds de manière concise et actionable.<|end|>
         }
     
     def generate_nutrition_plan(self, user_data: dict, profile: dict) -> dict:
-        """
-        Génère un plan nutritionnel personnalisé.
-        
-        Args:
-            user_data: Données utilisateur
-            profile: Profil physiologique
-            
-        Returns:
-            Plan nutritionnel
-        """
+        """Génère un plan nutritionnel"""
         message = f"Crée-moi un plan alimentaire détaillé pour une journée type, respectant mes macros de {profile['nutrition']['macros']['protein_g']}g protéines, {profile['nutrition']['macros']['carbs_g']}g glucides et {profile['nutrition']['macros']['fat_g']}g lipides."
         
         prompt = self.create_prompt(user_data, profile, message)
@@ -272,13 +279,8 @@ Réponds de manière concise et actionable.<|end|>
         }
 
 
-# Initialiser le backend
 backend = FitBoxBackend()
 
-
-# ============================================================================
-# ROUTES API
-# ============================================================================
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -292,23 +294,10 @@ def health_check():
 
 @app.route('/calculate', methods=['POST'])
 def calculate_profile():
-    """
-    Route pour calculer le profil physiologique.
-    
-    Body JSON:
-    {
-        "age": 25,
-        "gender": "male",
-        "weight": 75,
-        "height": 1.75,
-        "activity_level": "moderately_active",
-        "goal": "muscle_gain"
-    }
-    """
+    """Route pour calculer le profil physiologique"""
     try:
         data = request.get_json()
         
-        # Validation des données
         required_fields = ['age', 'gender', 'weight', 'height']
         for field in required_fields:
             if field not in data:
@@ -317,7 +306,6 @@ def calculate_profile():
                     "error": f"Champ manquant: {field}"
                 }), 400
         
-        # Calculer le profil
         result = backend.calculate_profile(data)
         
         if result["success"]:
@@ -334,35 +322,16 @@ def calculate_profile():
 
 @app.route('/generate_workout', methods=['POST'])
 def generate_workout():
-    """
-    Route pour générer un programme d'entraînement.
-    
-    Body JSON:
-    {
-        "age": 25,
-        "gender": "male",
-        "weight": 75,
-        "height": 1.75,
-        "activity_level": "moderately_active",
-        "goal": "muscle_gain"
-    }
-    """
+    """Route pour générer un programme d'entraînement"""
     try:
         data = request.get_json()
         
-        # Calculer d'abord le profil
         profile_result = backend.calculate_profile(data)
         
         if not profile_result["success"]:
             return jsonify(profile_result), 400
         
-        # Générer le programme
-        workout_plan = backend.generate_workout_plan(
-            data,
-            profile_result["profile"]
-        )
-        
-        # Inclure le profil dans la réponse
+        workout_plan = backend.generate_workout_plan(data, profile_result["profile"])
         workout_plan["profile"] = profile_result["profile"]
         
         return jsonify(workout_plan), 200
@@ -376,27 +345,16 @@ def generate_workout():
 
 @app.route('/generate_nutrition', methods=['POST'])
 def generate_nutrition():
-    """
-    Route pour générer un plan nutritionnel.
-    
-    Body JSON: Identique à /generate_workout
-    """
+    """Route pour générer un plan nutritionnel"""
     try:
         data = request.get_json()
         
-        # Calculer d'abord le profil
         profile_result = backend.calculate_profile(data)
         
         if not profile_result["success"]:
             return jsonify(profile_result), 400
         
-        # Générer le plan nutritionnel
-        nutrition_plan = backend.generate_nutrition_plan(
-            data,
-            profile_result["profile"]
-        )
-        
-        # Inclure le profil dans la réponse
+        nutrition_plan = backend.generate_nutrition_plan(data, profile_result["profile"])
         nutrition_plan["profile"] = profile_result["profile"]
         
         return jsonify(nutrition_plan), 200
@@ -410,24 +368,7 @@ def generate_nutrition():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """
-    Route pour interaction conversationnelle.
-    
-    Body JSON:
-    {
-        "user_data": {
-            "age": 25,
-            "gender": "male",
-            ...
-        },
-        "message": "Comment améliorer ma force?",
-        "conversation_id": "uuid-123",
-        "history": [
-            {"user": "message1", "assistant": "response1"},
-            ...
-        ]
-    }
-    """
+    """Route pour interaction conversationnelle"""
     try:
         data = request.get_json()
         
@@ -442,7 +383,6 @@ def chat():
                 "error": "user_data et message sont requis"
             }), 400
         
-        # Calculer le profil
         profile_result = backend.calculate_profile(user_data)
         
         if not profile_result["success"]:
@@ -450,13 +390,9 @@ def chat():
         
         profile = profile_result["profile"]
         
-        # Créer le prompt avec historique
         prompt = backend.create_prompt(user_data, profile, message, history)
-        
-        # Générer la réponse
         response = backend.generate_response(prompt)
         
-        # Sauvegarder dans l'historique
         if conversation_id not in backend.conversations:
             backend.conversations[conversation_id] = []
         
@@ -499,7 +435,7 @@ def get_conversation(conversation_id):
 @app.route('/activity_levels', methods=['GET'])
 def get_activity_levels():
     """Retourne les niveaux d'activité disponibles"""
-    from backend.physiological_calculator import get_available_activity_levels
+    from physiological_calculator import get_available_activity_levels
     
     levels = get_available_activity_levels()
     return jsonify({
@@ -514,7 +450,7 @@ def get_activity_levels():
 @app.route('/goals', methods=['GET'])
 def get_goals():
     """Retourne les objectifs disponibles"""
-    from backend.physiological_calculator import get_available_goals
+    from physiological_calculator import get_available_goals
     
     goals = get_available_goals()
     return jsonify({
@@ -526,14 +462,10 @@ def get_goals():
     }), 200
 
 
-# ============================================================================
-# INITIALISATION
-# ============================================================================
-
 def initialize_app():
-    """Initialise l'application et charge le modèle"""
+    """Initialise l'application"""
     print("\n" + "="*60)
-    print("🏋️  FITBOX - BACKEND API")
+    print("🏋️  FITBOX - BACKEND API (VERSION CORRIGÉE)")
     print("="*60)
     
     success = backend.load_model()
@@ -541,14 +473,14 @@ def initialize_app():
     if success:
         print("\n✅ Backend initialisé avec succès!")
         print("\n📡 Endpoints disponibles:")
-        print("   GET  /health              - Vérification de l'état")
-        print("   POST /calculate           - Calculer le profil")
-        print("   POST /generate_workout    - Générer un programme")
-        print("   POST /generate_nutrition  - Générer un plan nutritionnel")
-        print("   POST /chat                - Conversation avec le chatbot")
-        print("   GET  /conversation/<id>   - Récupérer l'historique")
-        print("   GET  /activity_levels     - Niveaux d'activité")
-        print("   GET  /goals               - Objectifs disponibles")
+        print("   GET  /health")
+        print("   POST /calculate")
+        print("   POST /generate_workout")
+        print("   POST /generate_nutrition")
+        print("   POST /chat")
+        print("   GET  /conversation/<id>")
+        print("   GET  /activity_levels")
+        print("   GET  /goals")
     else:
         print("\n⚠️  Erreur lors de l'initialisation")
     
@@ -558,7 +490,6 @@ def initialize_app():
 if __name__ == '__main__':
     initialize_app()
     
-    # Lancer le serveur
     print("🚀 Démarrage du serveur sur http://localhost:5000")
     print("   Appuyez sur Ctrl+C pour arrêter\n")
     
@@ -566,5 +497,5 @@ if __name__ == '__main__':
         host='0.0.0.0',
         port=5000,
         debug=True,
-        use_reloader=False  # Éviter le double chargement du modèle
+        use_reloader=False
     )
