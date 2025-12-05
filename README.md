@@ -48,9 +48,9 @@ FitBox propose une **expérience ludique, attractive et engageante** qui donne e
 
 ---
 
-## 🌐 Démo en ligne
+## 🌐 Démo 
 
-🔗 **[Accéder à FitBox en ligne](https://votre-lien-streamlit.app)** *(Remplacez par votre lien réel)*
+🔗 **[Accéder à FitBox en ligne](https://drive.google.com/file/d/16C6qncCHcAhat5-WpUWsKpKwfShkh-Tb/view?usp=sharing)** *(Remplacez par votre lien réel)*
 
 > *Note : Pour une expérience optimale et le respect total de votre vie privée, nous recommandons l'installation locale.*
 
