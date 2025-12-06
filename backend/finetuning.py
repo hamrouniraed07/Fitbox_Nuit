@@ -1,7 +1,3 @@
-"""
-FitBox - Phase 4: Fine-tuning du Modèle avec LoRA/QLoRA
-Entraînement efficace du modèle sur les données fitness
-"""
 
 import torch
 from transformers import (
