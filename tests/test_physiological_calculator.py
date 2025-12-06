@@ -1,10 +1,3 @@
-"""
-FitBox - Tests Unitaires pour le Module de Calculs Physiologiques
-Phase 2 - Étape 2.2
-
-Ce module teste tous les calculs physiologiques pour garantir leur exactitude.
-"""
-
 import sys
 from pathlib import Path
 
