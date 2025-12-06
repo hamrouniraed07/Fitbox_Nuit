@@ -1,7 +1,3 @@
-"""
-FitBox - Calculateur Physiologique Interactif
-Interface console pour tester le module de calculs
-"""
 
 from physiological_calculator import (
     PhysiologicalCalculator,
