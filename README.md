@@ -10,7 +10,9 @@
 - [Technologies utilisées](#-technologies-utilisées)
 - [Pourquoi ces choix techniques ?](#-pourquoi-ces-choix-techniques)
 - [Installation](#-installation)
-- [Utilisation](#-utilisation)
+- [Fine-Tuning QLoRA](#-fine-tuning-qlora)
+- [Déploiement](#-déploiement)
+- [Utilisation](#--utilisation)
 - [Fonctionnalités](#-fonctionnalités)
 - [Architecture du projet](#-architecture-du-projet)
 - [Respect de la vie privée](#-respect-de-la-vie-privée)
@@ -48,11 +50,16 @@ FitBox propose une **expérience ludique, attractive et engageante** qui donne e
 
 ---
 
-## 🌐 Démo 
+## 🌐 Démo en ligne
 
-🔗 **[Accéder à FitBox](https://drive.google.com/file/d/16C6qncCHcAhat5-WpUWsKpKwfShkh-Tb/view?usp=sharing)** 
+🔗 **[Accéder à FitBox en ligne](http://148.113.42.38:8501/)** 
 
 > *Note : Pour une expérience optimale et le respect total de votre vie privée, nous recommandons l'installation locale.*
+
+### Accès direct au serveur de développement
+- **URL** : http://148.113.42.38:8501/
+- **Modèle IA** : Llama 2 7B fine-tuné avec QLoRA
+- **Disponibilité** : 24/7 sur serveur de travail
 
 ---
 
@@ -63,7 +70,8 @@ FitBox propose une **expérience ludique, attractive et engageante** qui donne e
 | **Python** | 3.8+ | Backend & Calculs | 🆓 Gratuit |
 | **Streamlit** | 1.28+ | Interface utilisateur | 🆓 Gratuit |
 | **Ollama** | Latest | Moteur IA local | 🆓 Gratuit |
-| **Llama 3.2** | 3B | Modèle de langage | 🆓 Gratuit |
+| **Llama 2 7B** | 7B | Modèle de langage fine-tuné | 🆓 Gratuit |
+| **PyTorch + PEFT** | Latest | Fine-tuning QLoRA | 🆓 Gratuit |
 | **Flask** | 2.3+ | API REST | 🆓 Gratuit |
 | **Plotly** | 5.17+ | Visualisations | 🆓 Gratuit |
 
@@ -71,20 +79,21 @@ FitBox propose une **expérience ludique, attractive et engageante** qui donne e
 
 ## 💡 Pourquoi ces choix techniques ?
 
-### 1. **Ollama + Llama 3.2 : L'IA pour tous** 🤖
+### 1. **Ollama + Llama 2 7B (Fine-tuné avec QLoRA) : L'IA pour tous** 🤖
 
-**Pourquoi Ollama ?**
+**Pourquoi Ollama + Llama 2 ?**
 - ✅ **100% gratuit et open-source**
 - ✅ **Fonctionne localement** (pas besoin d'internet après installation)
 - ✅ **Léger** : Tourne sur des PC modestes (4-8 GB RAM)
 - ✅ **Aucune API payante** (contrairement à GPT-4, Claude, etc.)
 - ✅ **Respect de la vie privée** : Vos données restent sur votre machine
 
-**Pourquoi Llama 3.2 (3B) ?**
+**Pourquoi Llama 2 7B (Fine-tuné avec QLoRA) ?**
 - ✅ **Modèle gratuit** de Meta AI
 - ✅ **Optimisé pour CPU** : Pas besoin de GPU coûteux
-- ✅ **Performances excellentes** pour le coaching sportif
-- ✅ **3 milliards de paramètres** : Bon compromis performance/ressources
+- ✅ **Fine-tuning QLoRA** : Spécialisé dans le coaching fitness
+- ✅ **Performances excellentes** pour le coaching sportif et nutritionnel
+- ✅ **7 milliards de paramètres** : Bon compromis performance/ressources
 
 **Alternative aux solutions payantes :**
 | Service | Coût mensuel | FitBox |
@@ -152,13 +161,13 @@ cd ..
 pip install streamlit plotly fpdf requests
 ```
 
-### Étape 4 : Installer Ollama et Llama 3.2
+### Étape 4 : Installer Ollama et Llama 2 7B
 
 ```bash
 # Télécharger et installer Ollama depuis https://ollama.ai/download
 
-# Télécharger le modèle Llama 3.2 (3B - ~2 GB)
-ollama pull llama3.2:3b
+# Télécharger le modèle Llama 2 7B (~4 GB)
+ollama pull llama2:7b
 
 # Vérifier l'installation
 ollama list
@@ -166,8 +175,8 @@ ollama list
 
 **Alternative si peu de RAM :**
 ```bash
-# Version 1B (plus légère, ~700 MB)
-ollama pull llama3.2:1b
+# Version Mistral 7B (plus optimisée, ~4 GB)
+ollama pull mistral:7b
 ```
 
 ### Étape 5 : Configuration
@@ -176,7 +185,7 @@ Créez un fichier `.env` dans le dossier `backend/` :
 
 ```env
 # Configuration Ollama
-OLLAMA_MODEL=llama3.2:3b
+OLLAMA_MODEL=llama2:7b
 OLLAMA_HOST=http://localhost:11434
 
 # Configuration API
@@ -186,7 +195,166 @@ FLASK_DEBUG=False
 
 ---
 
-## 🚀 Utilisation
+## 🚀 Fine-Tuning QLoRA
+
+FitBox utilise un modèle Llama 2 7B **fine-tuné avec QLoRA** (Quantized Low-Rank Adaptation) pour spécialiser le modèle dans le coaching fitness et nutritionnel.
+
+### Qu'est-ce que QLoRA ?
+
+**QLoRA** est une technique avancée qui combine :
+- **4-bit Quantization** : Réduit la taille du modèle de 75%
+- **LoRA (Low-Rank Adaptation)** : Fine-tuning efficace en paramètres
+- **Gradient Checkpointing** : Économise 2-3x la mémoire GPU
+
+### Avantages du fine-tuning QLoRA
+
+| Aspect | LoRA Simple | QLoRA (Utilisé) |
+|--------|------------|-----------------|
+| Mémoire GPU | 16 GB | 4-6 GB |
+| Temps d'entraînement | ~1 heure | ~30 minutes |
+| Taille des adapters | 50-100 MB | 10-50 MB |
+| Qualité de réponse | Bonne | **Excellente** |
+
+### Lancer le fine-tuning
+
+```bash
+# Valider la configuration
+python -m backend.finetuning_validator
+
+# Lancer le fine-tuning QLoRA
+python backend/finetuning.py
+
+# Utiliser le modèle fine-tuné
+python backend/finetuning_inference.py
+```
+
+### Architecture du fine-tuning
+
+```
+Modèle de base: Llama 2 7B
+    ↓
+4-bit Quantization (NF4)
+    ↓
+LoRA Adapters (r=32, α=64)
+    ↓
+Entraînement sur données fitness (975 profils)
+    ↓
+Sauvegarde des adapters (~50 MB)
+    ↓
+Inférence avec modèle fine-tuné
+```
+
+### Résultats du fine-tuning
+
+- ✅ **975 profils de fitness** utilisés pour l'entraînement
+- ✅ **2,925 exemples** générés (3 par profil)
+- ✅ **Épilogue spécialisé** en coaching sportif et nutrition
+- ✅ **4 epochs** de fine-tuning avec optimisation Cosine Annealing
+- ✅ **Learning rate** : 5e-4 (optimisé pour convergence rapide)
+
+---
+
+## 🌐 Déploiement
+
+### Déploiement en ligne
+
+FitBox est actuellement déployé sur un serveur de travail :
+
+**URL de production :** [http://148.113.42.38:8501/](http://148.113.42.38:8501/)
+
+**Caractéristiques du déploiement :**
+- ✅ Interface Streamlit en ligne
+- ✅ Modèle Llama 2 7B fine-tuné avec QLoRA
+- ✅ API Flask backend fonctionnelle
+- ✅ Disponibilité 24/7
+- ✅ Accès sans installation locale
+
+### Déploiement local (recommandé pour la vie privée)
+
+```bash
+# 1. Cloner le projet
+git clone https://github.com/votre-username/fitbox.git
+cd fitbox
+
+# 2. Créer un environnement virtuel
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# ou
+venv\Scripts\activate  # Windows
+
+# 3. Installer les dépendances
+pip install -r backend/requirements.txt
+pip install streamlit plotly fpdf requests
+
+# 4. Lancer Ollama
+ollama serve
+
+# 5. Dans un nouveau terminal, lancer le backend
+cd backend
+python backend_api.py
+
+# 6. Dans un autre terminal, lancer le frontend
+streamlit run ../frontend/app.py
+```
+
+### Déploiement sur serveur (production)
+
+Pour déployer sur un serveur distant (AWS, DigitalOcean, etc.) :
+
+```bash
+# 1. Installer les dépendances système
+sudo apt-get update
+sudo apt-get install python3 python3-pip
+
+# 2. Cloner et configurer
+git clone https://github.com/votre-username/fitbox.git
+cd fitbox
+pip install -r backend/requirements.txt
+
+# 3. Installer Ollama
+curl https://ollama.ai/install.sh | sh
+
+# 4. Lancer avec systemd (démarrage automatique)
+sudo systemctl start ollama
+sudo systemctl start fitbox-backend
+sudo systemctl start fitbox-frontend
+```
+
+### Configuration du déploiement (`.env`)
+
+```env
+# Mode production
+ENVIRONMENT=production
+
+# Ollama
+OLLAMA_MODEL=llama2:7b
+OLLAMA_HOST=http://localhost:11434
+
+# Flask API
+FLASK_PORT=5000
+FLASK_HOST=0.0.0.0
+FLASK_DEBUG=False
+
+# Streamlit
+STREAMLIT_PORT=8501
+STREAMLIT_SERVER_HEADLESS=true
+```
+
+### Monitoring du déploiement
+
+```bash
+# Vérifier les services
+systemctl status ollama
+systemctl status fitbox-backend
+systemctl status fitbox-frontend
+
+# Voir les logs
+journalctl -u ollama -f
+journalctl -u fitbox-backend -f
+journalctl -u fitbox-frontend -f
+```
+
+---
 
 ### Démarrage rapide
 
